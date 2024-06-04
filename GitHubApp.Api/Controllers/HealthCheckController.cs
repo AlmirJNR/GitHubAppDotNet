@@ -7,5 +7,5 @@ namespace GitHubApp.Api.Controllers;
 public class HealthCheckController : ControllerBase
 {
     [HttpGet]
-    public Task<OkObjectResult> Get() => Task.FromResult(Ok(new { Status = "Ok" }));
+    public Task<IActionResult> Get() => Task.FromResult<IActionResult>(Ok(new { Status = "Ok" }));
 }

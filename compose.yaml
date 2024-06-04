@@ -1,0 +1,7 @@
+services:
+  ngrok:
+    image: ngrok/ngrok:alpine
+    environment:
+      - NGROK_AUTHTOKEN=CHANGE_ME
+    command: http 5000 --log 'stdout'
+    network_mode: host

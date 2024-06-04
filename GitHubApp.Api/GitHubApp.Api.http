@@ -1,6 +1,18 @@
 @GitHubApp.Api_HostAddress = http://localhost:5000
 
-GET {{GitHubApp.Api_HostAddress}}/healthcheck/
+### Health Check
+
+GET {{GitHubApp.Api_HostAddress}}/HealthCheck
 Accept: application/json
+
+### GitHub Webhook
+
+POST {{GitHubApp.Api_HostAddress}}/api/v1/GitHubWebhook
+Content-Type: application/json
+
+{
+  "key": "value",
+  "list": [1, 2, 3]
+}
 
 ###
