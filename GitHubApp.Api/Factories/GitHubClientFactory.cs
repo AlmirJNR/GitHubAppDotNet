@@ -27,10 +27,10 @@ public class GitHubClientFactory
 
     public async Task<GitHubClient> CreateClient(long installationId)
     {
-        var gitHubInstallationJwtCacheKey = CacheKeysConstants.GitHubInstallationJwt(installationId);
-        var gitHubInstallationJwt = await _cache.Get<string>(gitHubInstallationJwtCacheKey);
-        if (!string.IsNullOrWhiteSpace(gitHubInstallationJwt))
-            return BuildClient(gitHubInstallationJwt);
+        var gitHubInstallationTokenCacheKey = CacheKeysConstants.GitHubInstallationToken(installationId);
+        var gitHubInstallationToken = await _cache.Get<string>(gitHubInstallationTokenCacheKey);
+        if (!string.IsNullOrWhiteSpace(gitHubInstallationToken))
+            return BuildClient(gitHubInstallationToken);
 
         var gitHubPemSignedJwt = await _cache.Get<string>(CacheKeysConstants.GitHubPemSignedJwt);
         if (string.IsNullOrWhiteSpace(gitHubPemSignedJwt))
@@ -54,7 +54,7 @@ public class GitHubClientFactory
         var pemSignedGitHubClient = BuildClient(gitHubPemSignedJwt);
         var installation = await pemSignedGitHubClient.GitHubApps.GetInstallationForCurrent(installationId);
         var installationToken = await pemSignedGitHubClient.GitHubApps.CreateInstallationToken(installation.Id);
-        _ = await _cache.Set(gitHubInstallationJwtCacheKey, installationToken.Token, TimeSpan.FromHours(1));
+        _ = await _cache.Set(gitHubInstallationTokenCacheKey, installationToken.Token, TimeSpan.FromHours(1));
         return BuildClient(installationToken.Token);
     }
 }
