@@ -9,6 +9,7 @@ builder.ConfigureJsonWebTokenOptions();
 builder.Services.AddMemoryCache(options => options.SizeLimit = 1024);
 builder.Services.TryAddScoped<ICacheService, CacheService>();
 builder.Services.TryAddScoped<GitHubClientFactory>();
+builder.Services.TryAddTransient<PullRequestService>();
 builder.Services.AddControllers();
 
 var app = builder.Build();

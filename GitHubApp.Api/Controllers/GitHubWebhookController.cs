@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 using GitHubApp.Api.Constants;
 using GitHubApp.Api.Extensions;
 using GitHubApp.Api.Factories;
-using GitHubApp.Api.Handlers;
+using GitHubApp.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Octokit;
 
@@ -13,10 +13,15 @@ namespace GitHubApp.Api.Controllers;
 public class GitHubWebhookController : ControllerBase
 {
     private readonly GitHubClientFactory _gitHubClientFactory;
+    private readonly PullRequestService _pullRequestService;
 
-    public GitHubWebhookController(GitHubClientFactory gitHubClientFactory)
+    public GitHubWebhookController(
+        GitHubClientFactory gitHubClientFactory,
+        PullRequestService pullRequestService
+    )
     {
         _gitHubClientFactory = gitHubClientFactory;
+        _pullRequestService = pullRequestService;
     }
 
     [HttpPost]
@@ -36,7 +41,7 @@ public class GitHubWebhookController : ControllerBase
         var gitHubClient = await _gitHubClientFactory.CreateClient(activityPayload.Installation.Id);
         return eventPayload switch
         {
-            PullRequestEventPayload payload => await gitHubClient.Handle(payload),
+            PullRequestEventPayload payload => await _pullRequestService.Handle(gitHubClient, payload),
             _ => Problem()
         };
     }

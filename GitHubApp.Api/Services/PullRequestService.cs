@@ -3,11 +3,11 @@ using GitHubApp.Api.Constants;
 using Microsoft.AspNetCore.Mvc;
 using Octokit;
 
-namespace GitHubApp.Api.Handlers;
+namespace GitHubApp.Api.Services;
 
-public static partial class PullRequestHandler
+public partial class PullRequestService
 {
-    public static async Task<IActionResult> Handle(this GitHubClient client, PullRequestEventPayload payload)
+    public async Task<IActionResult> Handle(GitHubClient client, PullRequestEventPayload payload)
     {
         if (payload.PullRequest.Draft || payload.PullRequest.ClosedAt is not null)
             return new OkResult();
