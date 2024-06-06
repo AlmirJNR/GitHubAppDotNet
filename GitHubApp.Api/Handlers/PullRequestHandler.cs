@@ -9,7 +9,7 @@ public static partial class PullRequestHandler
 {
     public static async Task<IActionResult> Handle(this GitHubClient client, PullRequestEventPayload payload)
     {
-        if (payload.PullRequest.Draft)
+        if (payload.PullRequest.Draft || payload.PullRequest.ClosedAt is not null)
             return new OkResult();
 
         if (ValidPullRequestTitleRegex().IsMatch(payload.PullRequest.Title))

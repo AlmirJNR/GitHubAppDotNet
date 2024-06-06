@@ -2,12 +2,15 @@ namespace GitHubApp.Api.Options;
 
 public class GitHubJsonWebTokenOptions
 {
-    public string ClientSecret { get; }
     public string ClientId { get; }
+    public string PemFileLocation { get; }
 
-    public GitHubJsonWebTokenOptions(string clientSecret, string clientId)
+    public GitHubJsonWebTokenOptions(string clientId, string pemFileLocation)
     {
-        ClientSecret = clientSecret;
         ClientId = clientId;
+        PemFileLocation = pemFileLocation
+            .Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace("~", Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
     }
 }

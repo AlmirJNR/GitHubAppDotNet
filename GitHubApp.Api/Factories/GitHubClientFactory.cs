@@ -1,53 +1,60 @@
-using System.Text;
+using System.Security.Cryptography;
 using GitHubApp.Api.Constants;
+using GitHubApp.Api.Interfaces;
 using GitHubApp.Api.Options;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Octokit;
-using Octokit.Internal;
 
 namespace GitHubApp.Api.Factories;
 
 public class GitHubClientFactory
 {
     private readonly GitHubJsonWebTokenOptions _gitHubJsonWebTokenOptions;
-    private readonly IMemoryCache _cache;
+    private readonly ICacheService _cache;
 
-    public GitHubClientFactory(IOptions<GitHubJsonWebTokenOptions> jsonWebTokenOptions, IMemoryCache cache)
+    public GitHubClientFactory(IOptions<GitHubJsonWebTokenOptions> jsonWebTokenOptions, ICacheService cache)
     {
         _gitHubJsonWebTokenOptions = jsonWebTokenOptions.Value;
         _cache = cache;
     }
 
-    public GitHubClient CreateClient()
+    private static GitHubClient BuildClient(string jwt) => new(new ProductHeaderValue(MiscConstants.AppName))
     {
-        if (!_cache.TryGetValue("gitHubJwt", out string? gitHubJwt) || string.IsNullOrWhiteSpace(gitHubJwt))
+        Credentials = new Credentials(jwt, AuthenticationType.Bearer)
+    };
+
+    public async Task<GitHubClient> CreateClient(long installationId)
+    {
+        var gitHubInstallationJwtCacheKey = CacheKeysConstants.GitHubInstallationJwt(installationId);
+        var gitHubInstallationJwt = await _cache.Get<string>(gitHubInstallationJwtCacheKey);
+        if (!string.IsNullOrWhiteSpace(gitHubInstallationJwt))
+            return BuildClient(gitHubInstallationJwt);
+
+        var gitHubPemSignedJwt = await _cache.Get<string>(CacheKeysConstants.GitHubPemSignedJwt);
+        if (string.IsNullOrWhiteSpace(gitHubPemSignedJwt))
         {
-            var issuedAt = DateTime.UtcNow;
-            var expiresAt = issuedAt.AddHours(6);
-            var securityKey = Encoding.UTF8.GetBytes(_gitHubJsonWebTokenOptions.ClientSecret);
-            gitHubJwt = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+            var pemSignedJwtIssuedAt = DateTime.UtcNow;
+            var pemSignedJwtIssuedAtExpiresAt = pemSignedJwtIssuedAt.AddMinutes(10);
+            var rsa = RSA.Create();
+            var pemFile = await File.ReadAllTextAsync(_gitHubJsonWebTokenOptions.PemFileLocation);
+            rsa.ImportFromPem(pemFile);
+            gitHubPemSignedJwt = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
             {
-                Audience = null,
-                Expires = expiresAt,
+                Expires = pemSignedJwtIssuedAtExpiresAt,
                 Issuer = _gitHubJsonWebTokenOptions.ClientId,
-                IssuedAt = issuedAt,
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(securityKey),
-                    SecurityAlgorithms.RsaSha256
-                )
+                IssuedAt = pemSignedJwtIssuedAt,
+                SigningCredentials = new SigningCredentials(new RsaSecurityKey(rsa), SecurityAlgorithms.RsaSha256)
             });
 
-            _cache.Set("gitHubJwt", gitHubJwt, expiresAt);
+            _ = await _cache.Set(CacheKeysConstants.GitHubPemSignedJwt, gitHubPemSignedJwt, TimeSpan.FromMinutes(10));
         }
 
-        var gitHubClient = new GitHubClient(
-            new ProductHeaderValue(MiscConstants.AppName),
-            new InMemoryCredentialStore(new Credentials(gitHubJwt, AuthenticationType.Bearer))
-        );
-
-        return gitHubClient;
+        var pemSignedGitHubClient = BuildClient(gitHubPemSignedJwt);
+        var installation = await pemSignedGitHubClient.GitHubApps.GetInstallationForCurrent(installationId);
+        var installationToken = await pemSignedGitHubClient.GitHubApps.CreateInstallationToken(installation.Id);
+        _ = await _cache.Set(gitHubInstallationJwtCacheKey, installationToken.Token, TimeSpan.FromHours(1));
+        return BuildClient(installationToken.Token);
     }
 }
