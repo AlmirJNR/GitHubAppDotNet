@@ -52,8 +52,7 @@ public class GitHubClientFactory
         }
 
         var pemSignedGitHubClient = BuildClient(gitHubPemSignedJwt);
-        var installation = await pemSignedGitHubClient.GitHubApps.GetInstallationForCurrent(installationId);
-        var installationToken = await pemSignedGitHubClient.GitHubApps.CreateInstallationToken(installation.Id);
+        var installationToken = await pemSignedGitHubClient.GitHubApps.CreateInstallationToken(installationId);
         _ = await _cache.Set(gitHubInstallationTokenCacheKey, installationToken.Token, TimeSpan.FromHours(1));
         return BuildClient(installationToken.Token);
     }
