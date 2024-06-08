@@ -29,19 +29,21 @@ public sealed partial class PullRequestEventProcessor : WebhookEventProcessor
     // ref: https://github.com/octokit/octokit.net/issues/1862#issuecomment-418290045
     protected override async Task ProcessPullRequestWebhookAsync(
         WebhookHeaders __,
-        PullRequestEvent pullReqEvent,
+        PullRequestEvent pullRequestEvent,
         PullRequestAction ___
     )
     {
-        if (pullReqEvent is { Installation: null } or { PullRequest.Draft: true } or { PullRequest.ClosedAt: not null })
+        if (pullRequestEvent is { Installation: null }
+            or { PullRequest.Draft: true }
+            or { PullRequest.ClosedAt: not null })
             return;
 
-        var client = _gitHubClientFactory.GetOrCreateClient(pullReqEvent.Installation.Id);
-        var repository = client.Repos[pullReqEvent.Repository?.Owner.Login][pullReqEvent.Repository?.Name];
-        var repositoryIssues = repository.Issues[Convert.ToInt32(pullReqEvent.Number)];
-        var labelsNames = pullReqEvent.PullRequest.Labels.Select(x => x.Name).ToArray();
+        var client = _gitHubClientFactory.GetOrCreateClient(pullRequestEvent.Installation.Id);
+        var repository = client.Repos[pullRequestEvent.Repository?.Owner.Login][pullRequestEvent.Repository?.Name];
+        var repositoryIssues = repository.Issues[Convert.ToInt32(pullRequestEvent.Number)];
+        var labelsNames = pullRequestEvent.PullRequest.Labels.Select(x => x.Name).ToArray();
 
-        if (ValidPullRequestTitleRegex().IsMatch(pullReqEvent.PullRequest.Title))
+        if (ValidPullRequestTitleRegex().IsMatch(pullRequestEvent.PullRequest.Title))
         {
             if (!labelsNames.Contains(LabelsConstants.InvalidPullRequest))
                 return;
