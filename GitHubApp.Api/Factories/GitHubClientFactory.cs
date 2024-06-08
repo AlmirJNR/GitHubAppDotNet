@@ -1,59 +1,46 @@
 using System.Security.Cryptography;
-using GitHubApp.Api.Constants;
-using GitHubApp.Api.Interfaces;
+using GitHub;
+using GitHub.Octokit.Client;
+using GitHub.Octokit.Client.Authentication;
 using GitHubApp.Api.Options;
+using GitHubApp.Api.Pools;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.IdentityModel.Tokens;
-using Octokit;
 
 namespace GitHubApp.Api.Factories;
 
 public class GitHubClientFactory
 {
     private readonly GitHubJsonWebTokenOptions _gitHubJsonWebTokenOptions;
-    private readonly ICacheService _cache;
+    private readonly GitHubClientPool _gitHubClientPool;
 
-    public GitHubClientFactory(IOptions<GitHubJsonWebTokenOptions> jsonWebTokenOptions, ICacheService cache)
+    public GitHubClientFactory(
+        IOptions<GitHubJsonWebTokenOptions> jsonWebTokenOptions,
+        GitHubClientPool gitHubClientPool
+    )
     {
+        _gitHubClientPool = gitHubClientPool;
         _gitHubJsonWebTokenOptions = jsonWebTokenOptions.Value;
-        _cache = cache;
     }
 
-    private static GitHubClient BuildClient(string jwt) => new(new ProductHeaderValue(MiscConstants.AppName))
+    public GitHubClient GetOrCreateClient(long installationId)
     {
-        Credentials = new Credentials(jwt, AuthenticationType.Bearer)
-    };
+        if (_gitHubClientPool.Pool.TryGetValue(installationId, out var gitHubClient))
+            return gitHubClient;
 
-    public async Task<GitHubClient> CreateClient(long installationId)
-    {
-        var gitHubInstallationTokenCacheKey = CacheKeysConstants.GitHubInstallationToken(installationId);
-        var gitHubInstallationToken = await _cache.Get<string>(gitHubInstallationTokenCacheKey);
-        if (!string.IsNullOrWhiteSpace(gitHubInstallationToken))
-            return BuildClient(gitHubInstallationToken);
+        var rsa = RSA.Create();
+        var pemFile = File.ReadAllText(_gitHubJsonWebTokenOptions.PemFileLocation);
+        rsa.ImportFromPem(pemFile);
+        var requestAdapter = RequestAdapter.Create(new AppInstallationAuthProvider(
+            new AppInstallationTokenProvider(
+                _gitHubJsonWebTokenOptions.ClientId,
+                rsa,
+                installationId.ToString(),
+                new GitHubAppTokenProvider()
+            )
+        ));
 
-        var gitHubPemSignedJwt = await _cache.Get<string>(CacheKeysConstants.GitHubPemSignedJwt);
-        if (string.IsNullOrWhiteSpace(gitHubPemSignedJwt))
-        {
-            var pemSignedJwtIssuedAt = DateTime.UtcNow;
-            var pemSignedJwtIssuedAtExpiresAt = pemSignedJwtIssuedAt.AddMinutes(10);
-            var rsa = RSA.Create();
-            var pemFile = await File.ReadAllTextAsync(_gitHubJsonWebTokenOptions.PemFileLocation);
-            rsa.ImportFromPem(pemFile);
-            gitHubPemSignedJwt = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
-            {
-                Expires = pemSignedJwtIssuedAtExpiresAt,
-                Issuer = _gitHubJsonWebTokenOptions.ClientId,
-                IssuedAt = pemSignedJwtIssuedAt,
-                SigningCredentials = new SigningCredentials(new RsaSecurityKey(rsa), SecurityAlgorithms.RsaSha256)
-            });
-
-            _ = await _cache.Set(CacheKeysConstants.GitHubPemSignedJwt, gitHubPemSignedJwt, TimeSpan.FromMinutes(10));
-        }
-
-        var pemSignedGitHubClient = BuildClient(gitHubPemSignedJwt);
-        var installationToken = await pemSignedGitHubClient.GitHubApps.CreateInstallationToken(installationId);
-        _ = await _cache.Set(gitHubInstallationTokenCacheKey, installationToken.Token, TimeSpan.FromHours(1));
-        return BuildClient(installationToken.Token);
+        var newGitHubClient = new GitHubClient(requestAdapter);
+        _gitHubClientPool.Pool[installationId] = newGitHubClient;
+        return newGitHubClient;
     }
 }
