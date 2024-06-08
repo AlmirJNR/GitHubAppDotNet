@@ -14,7 +14,8 @@ builder.Services.TryAddSingleton<GitHubClientFactory>();
 builder.Services.TryAddSingleton<GitHubLabelsPool>();
 builder.Services.TryAddScoped<GitHubLabelsService>();
 builder.Services.TryAddScoped<GitHubIssuesService>();
-builder.Services.TryAddScoped<WebhookEventProcessor, PullRequestEventProcessor>();
+builder.Services.TryAddScoped<GitHubPullRequestsService>();
+builder.Services.TryAddScoped<WebhookEventProcessor, GitHubWebhookEventProcessor>();
 builder.Services.AddControllers();
 
 var app = builder.Build();
