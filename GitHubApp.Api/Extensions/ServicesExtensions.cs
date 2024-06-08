@@ -9,8 +9,8 @@ public static class ServicesExtensions
 {
     public static void ConfigureJsonWebTokenOptions(this WebApplicationBuilder builder)
     {
-        var clientId = builder.Configuration.GetRequired<string>(MiscConstants.GitHubClientId);
-        var pemFileLocation = builder.Configuration.GetRequired<string>(MiscConstants.GitHubPemFileLocation);
+        var clientId = builder.Configuration.GetRequired<string>(ConfigKeysConstants.GitHubClientId);
+        var pemFileLocation = builder.Configuration.GetRequired<string>(ConfigKeysConstants.GitHubPemFileLocation);
         builder.Services.TryAddSingleton<IOptions<GitHubJsonWebTokenOptions>>(
             new OptionsWrapper<GitHubJsonWebTokenOptions>(
                 new GitHubJsonWebTokenOptions(clientId, pemFileLocation)

@@ -2,5 +2,5 @@ namespace GitHubApp.Api.Constants;
 
 public readonly struct CommandsConstants
 {
-    public const string Merge = $"@{MiscConstants.AppName} merge";
+    public const string Merge = $"@{AppConstants.Name} merge";
 }

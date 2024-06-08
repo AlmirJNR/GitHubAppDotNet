@@ -7,7 +7,7 @@ Accept: application/json
 
 ### GitHub Webhook
 
-POST {{GitHubApp.Api_HostAddress}}/api/v1/GitHubWebhook
+POST {{GitHubApp.Api_HostAddress}}/api/github/webhooks
 Content-Type: application/json
 
 {
